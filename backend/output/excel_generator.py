@@ -49,7 +49,28 @@ FIELD_MAP = [
 ]
 
 
+# Мусорные имена — артефакты JS/карт, которые не являются людьми
+_JUNK_NAMES = {
+    "Page Down", "Page Up", "Map Data", "Keyboard shortcuts",
+    "Terms of Use", "Report a map error", "Scroll to zoom",
+    "ФИО не найдено",
+}
+
+
+def _is_valid_contact(contact: dict) -> bool:
+    name = (contact.get("person_name") or "").strip()
+    pos = (contact.get("position_raw") or "").strip()
+    email = (contact.get("person_email") or contact.get("company_email") or "").strip()
+    phone = (contact.get("company_phone") or contact.get("person_phone") or "").strip()
+    if name in _JUNK_NAMES:
+        return False
+    # Нужно хотя бы имя или (должность + контакт)
+    return bool(name) or bool(pos and (email or phone))
+
+
 def generate_excel(contacts: list[dict], output_path: str) -> str:
+    # Фильтрация мусора
+    contacts = [c for c in contacts if _is_valid_contact(c)]
     wb = Workbook()
     ws = wb.active
     ws.title = "Контакты"
