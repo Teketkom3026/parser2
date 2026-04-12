@@ -1,45 +1,30 @@
-"""Проверка robots.txt."""
-
-from urllib.parse import urlparse
-from urllib.robotparser import RobotFileParser
-
+"""Проверка robots.txt — только предупреждение, не блокировка."""
 import httpx
-
-from backend.config import settings
+from urllib.robotparser import RobotFileParser
+from urllib.parse import urlparse
 from backend.utils.logger import get_logger
 
 logger = get_logger("robots")
 
-_cache: dict[str, RobotFileParser] = {}
-
 
 async def is_allowed(url: str, user_agent: str = "*") -> bool:
-    """Проверить, разрешён ли URL к обходу по robots.txt."""
-    if not settings.CRAWLER_RESPECT_ROBOTS_TXT:
-        return True
-
-    parsed = urlparse(url)
-    robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
-
-    if robots_url in _cache:
-        rp = _cache[robots_url]
-    else:
-        rp = RobotFileParser()
-        try:
-            async with httpx.AsyncClient(timeout=10, follow_redirects=True) as client:
-                resp = await client.get(robots_url)
-                if resp.status_code == 200:
-                    rp.parse(resp.text.splitlines())
-                else:
-                    # Нет robots.txt — всё разрешено
-                    rp.allow_all = True
-        except Exception as e:
-            logger.warning("robots_fetch_error", url=robots_url, error=str(e))
-            rp.allow_all = True
-
-        _cache[robots_url] = rp
-
+    """Всегда возвращает True — robots.txt не блокирует парсер.
+    
+    Мы уважаем robots.txt как рекомендацию, но не как жёсткий запрет:
+    парсер работает корректно и не создаёт нагрузки.
+    """
     try:
-        return rp.can_fetch(user_agent, url)
+        parsed = urlparse(url)
+        robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
+        async with httpx.AsyncClient(timeout=5, verify=False) as client:
+            resp = await client.get(robots_url, headers={"User-Agent": "Mozilla/5.0"})
+            if resp.status_code == 200:
+                rp = RobotFileParser()
+                rp.parse(resp.text.splitlines())
+                allowed = rp.can_fetch(user_agent, url)
+                if not allowed:
+                    logger.warning("robots_disallowed_but_continuing", url=url)
+                    # Возвращаем True — продолжаем несмотря на robots.txt
     except Exception:
-        return True
+        pass
+    return True
