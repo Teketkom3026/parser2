@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: parser2-backend
+    ports:
+      - "8765:8000"
+    volumes:
+      - ./data:/app/data
+      - ./results:/app/results
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/parser2/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: parser2-frontend
+    ports:
+      - "8766:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
