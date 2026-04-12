@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libasound2t64 libxshmfence1 libx11-xcb1 fonts-liberation \
     libatk1.0-0t64 libatspi2.0-0t64 libcups2t64 libdbus-1-3 \
     libxext6 libxfixes3 libxi6 libxrender1 libxtst6 \
+    libxkbcommon0 libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
