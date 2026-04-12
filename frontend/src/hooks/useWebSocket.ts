@@ -1,2 +1,49 @@
-import { useEffect, useRef, useState, useCallback } from 'react' import { ProgressMessage } from '../types' export function useWebSocket(taskId: string | null) { const [progress, setProgress] = useState<ProgressMessage | null>(null) const [connected, setConnected] = useState(false) const wsRef = useRef<WebSocket | null>(null) const pingInterval = useRef<number | null>(null) const connect = useCallback(() => { if (!taskId) return const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:' const host = window.location.host const url = `${protocol}//${host}/ws/tasks/${taskId}/progress` const ws = new WebSocket(url) wsRef.current = ws ws.onopen = () => { setConnected(true) pingInterval.current = window.setInterval(() => { if (ws.readyState === WebSocket.OPEN) { ws.send('ping') } }, 25000) } ws.onmessage = (event) => { if (event.data === 'pong') return try { const data: ProgressMessage = JSON.parse(event.data) setProgress(data) } catch {} } ws.onclose = () => { setConnected(false) if (pingInterval.current) clearInterval(pingInterval.current) } ws.onerror = () => { setConnected(false)
-    } }, [taskId]) const disconnect = useCallback(() => { if (wsRef.current) { wsRef.current.close() wsRef.current = null } if (pingInterval.current) { clearInterval(pingInterval.current) } }, []) useEffect(() => { connect() return disconnect }, [connect, disconnect]) return { progress, connected } }
+import { useState, useEffect, useRef } from 'react'
+
+interface ProgressMsg {
+  task_id: string
+  status: string
+  processed: number
+  total: number
+  found_contacts: number
+  errors: number
+  current_url: string
+  message: string
+}
+
+export function useWebSocket(taskId: string | null) {
+  const [progress, setProgress] = useState<ProgressMsg | null>(null)
+  const [connected, setConnected] = useState(false)
+  const wsRef = useRef<WebSocket | null>(null)
+
+  useEffect(() => {
+    if (!taskId) return
+
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
+    const ws = new WebSocket(`${proto}://${window.location.host}/parser2/ws/tasks/${taskId}/progress`)
+    wsRef.current = ws
+
+    ws.onopen = () => setConnected(true)
+    ws.onclose = () => setConnected(false)
+    ws.onerror = () => setConnected(false)
+
+    ws.onmessage = (e) => {
+      try {
+        const data: ProgressMsg = JSON.parse(e.data)
+        setProgress(data)
+      } catch {}
+    }
+
+    const ping = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) ws.send('ping')
+    }, 25000)
+
+    return () => {
+      clearInterval(ping)
+      ws.close()
+      wsRef.current = null
+    }
+  }, [taskId])
+
+  return { progress, connected }
+}
