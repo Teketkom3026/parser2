@@ -1,7 +1,5 @@
 """Pydantic-модели данных."""
-from datetime import datetime
 from typing import Optional
-
 from pydantic import BaseModel, Field
 
 
@@ -34,6 +32,10 @@ class ContactOut(BaseModel):
     company_email: str = ""
     company_phone: str = ""
     person_name: str = ""
+    last_name: str = ""
+    first_name: str = ""
+    patronymic: str = ""
+    initials: str = ""
     position_raw: str = ""
     position_norm: str = ""
     role_category: str = ""
