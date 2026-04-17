@@ -176,9 +176,27 @@ def _write_sheet(ws, contacts: list[dict], header_color: str):
         ws.auto_filter.ref = f"A1:{get_column_letter(len(HEADERS))}{len(contacts) + 1}"
 
 
+def _dedup_contacts(contacts: list[dict]) -> list[dict]:
+    """Дедупликация: убираем одинаковые (site_url + person_name + position_raw)."""
+    seen: set = set()
+    result = []
+    for c in contacts:
+        key = (
+            (c.get("site_url") or "").strip().lower(),
+            (c.get("person_name") or "").strip().lower(),
+            (c.get("position_raw") or "").strip().lower(),
+        )
+        if key not in seen:
+            seen.add(key)
+            result.append(c)
+    return result
+
+
 def generate_excel(contacts: list[dict], output_path: str) -> str:
     # Фильтрация мусора
     contacts = [c for c in contacts if _is_valid_contact(c)]
+    # Дедупликация
+    contacts = _dedup_contacts(contacts)
 
     # Группировка по листам
     sheets: dict[str, list[dict]] = {
