@@ -53,6 +53,10 @@ CREATE TABLE IF NOT EXISTS contacts_cache (
     company_email TEXT,
     company_phone TEXT,
     person_name TEXT,
+    last_name TEXT,
+    first_name TEXT,
+    patronymic TEXT,
+    initials TEXT,
     position_raw TEXT,
     position_norm TEXT,
     role_category TEXT,
@@ -80,6 +84,15 @@ CREATE TABLE IF NOT EXISTS blacklist (
 CREATE INDEX IF NOT EXISTS idx_bl_value ON blacklist(entry_value);
 """
 
+# Миграции — добавляем колонки к существующим таблицам
+MIGRATIONS = [
+    # v1: добавляем колонки ФИО-разбивки
+    "ALTER TABLE contacts_cache ADD COLUMN last_name TEXT",
+    "ALTER TABLE contacts_cache ADD COLUMN first_name TEXT",
+    "ALTER TABLE contacts_cache ADD COLUMN patronymic TEXT",
+    "ALTER TABLE contacts_cache ADD COLUMN initials TEXT",
+]
+
 
 class Database:
     def __init__(self) -> None:
@@ -92,6 +105,17 @@ class Database:
         self._db.row_factory = aiosqlite.Row
         await self._db.executescript(SCHEMA_SQL)
         await self._db.commit()
+        await self._run_migrations()
+
+    async def _run_migrations(self) -> None:
+        """Добавляем недостающие колонки к существующим таблицам (идемпотентно)."""
+        for sql in MIGRATIONS:
+            try:
+                await self._db.execute(sql)
+                await self._db.commit()
+            except Exception:
+                # Колонка уже существует — игнорируем
+                pass
 
     async def close(self) -> None:
         if self._db:
